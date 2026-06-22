@@ -1,10 +1,21 @@
 use bitflags::bitflags;
 use oxc_index::IndexVec;
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 
 use crate::{ImportRecordIdx, SideEffectDetail, SymbolOrMemberExprRef, SymbolRef};
 
 use super::symbol_or_member_expr_ref::TaggedSymbolRef;
+
+/// Storage for the symbols a statement declares.
+///
+/// The overwhelming majority of statements declare zero, one, or two top-level symbols, so the
+/// elements are kept inline (no heap allocation) for up to two and only spill to the heap beyond
+/// that. With [`TaggedSymbolRef`] packed to 8 bytes this is the same 24 bytes as a `Vec`, so
+/// `StmtInfo` doesn't grow.
+pub type DeclaredSymbols = SmallVec<[TaggedSymbolRef; 2]>;
+
+const _: () = assert!(size_of::<DeclaredSymbols>() == size_of::<Vec<TaggedSymbolRef>>());
 
 #[derive(Debug, Clone)]
 pub struct StmtInfos {
@@ -124,7 +135,7 @@ bitflags! {
 #[derive(Default, Debug, Clone)]
 pub struct StmtInfo {
   // currently, we only store top level symbols
-  pub declared_symbols: Vec<TaggedSymbolRef>,
+  pub declared_symbols: DeclaredSymbols,
   // We will add symbols of other modules to `referenced_symbols`, so we need `SymbolRef`
   // here instead of `SymbolId`.
   /// Top level symbols referenced by this statement.
@@ -158,7 +169,7 @@ impl StmtInfo {
   }
 
   #[must_use]
-  pub fn with_declared_symbols(mut self, declared_symbols: Vec<TaggedSymbolRef>) -> Self {
+  pub fn with_declared_symbols(mut self, declared_symbols: DeclaredSymbols) -> Self {
     self.declared_symbols = declared_symbols;
     self
   }
