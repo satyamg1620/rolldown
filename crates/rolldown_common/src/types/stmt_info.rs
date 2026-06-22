@@ -11,10 +11,13 @@ use super::symbol_or_member_expr_ref::TaggedSymbolRef;
 ///
 /// The overwhelming majority of statements declare zero, one, or two top-level symbols, so the
 /// elements are kept inline (no heap allocation) for up to two and only spill to the heap beyond
-/// that. With [`TaggedSymbolRef`] packed to 8 bytes this is the same 24 bytes as a `Vec`, so
-/// `StmtInfo` doesn't grow.
+/// that. With [`TaggedSymbolRef`] packed to 8 bytes this matches the 24-byte footprint of a `Vec`
+/// on 64-bit targets, so `StmtInfo` doesn't grow there. On 32-bit targets (e.g. wasm32) the inline
+/// buffer makes it 8 bytes larger than a `Vec`, which we accept in exchange for eliding the
+/// per-statement heap allocation.
 pub type DeclaredSymbols = SmallVec<[TaggedSymbolRef; 2]>;
 
+#[cfg(target_pointer_width = "64")]
 const _: () = assert!(size_of::<DeclaredSymbols>() == size_of::<Vec<TaggedSymbolRef>>());
 
 #[derive(Debug, Clone)]
