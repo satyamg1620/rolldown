@@ -7,8 +7,9 @@ import { strict as assert } from 'node:assert';
 // read `undefined.EventMatch` and threw:
 //   TypeError: Cannot read properties of undefined (reading 'EventMatch')
 // `export default require_entry()` runs the closure at module-eval time, so simply importing
-// the bundle reproduces the throw. After the fix the two bindings are deconflicted (e.g. the
-// dependency's becomes `sharedValue$1`) and the import resolves cleanly.
+// the bundle reproduces the throw. After the fix the entry's local is deconflicted (it becomes
+// `sharedValue$1`), leaving the dependency's chunk-root `sharedValue` unshadowed, and the read
+// resolves cleanly.
 await import('./dist/main.js');
 
 // Reaching this line means the wrapped entry executed without throwing -> no shadowing.
