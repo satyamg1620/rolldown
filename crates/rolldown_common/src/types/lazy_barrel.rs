@@ -7,7 +7,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
   EcmaView, ImportKind, ImportRecordIdx, ImportRecordMeta, ImportRecordStateInit, ModuleIdx,
-  NormalModule, RawImportRecord, ResolvedId, Specifier, side_effects::DeterminedSideEffects,
+  NormalModule, RawImportRecord, ResolvedId, Specifier, StmtInfos,
+  side_effects::DeterminedSideEffects,
 };
 
 /// State for lazy barrel optimization
@@ -36,6 +37,7 @@ impl BarrelState {
   pub fn initialize_barrel_tracking(
     &self,
     module: &NormalModule,
+    stmt_infos: &StmtInfos,
     raw_import_records: &IndexVec<ImportRecordIdx, RawImportRecord>,
     barrel_info: &mut Option<BarrelInfo>,
   ) -> (FxHashMap<ImportRecordIdx, ImportedExports>, FxHashMap<ImportRecordIdx, ImportedExports>)
@@ -74,13 +76,43 @@ impl BarrelState {
       }
     }
 
-    let initial_needed_records = match barrel_info {
+    let is_barrel = barrel_info.is_some();
+    let mut initial_needed_records = match barrel_info {
       Some(barrel_info) => barrel_info.take_needed_records(
         self.requested_exports.get(&module.idx).unwrap_or(&ImportedExports::All),
         &mut imported_exports_per_record,
       ),
       None => std::mem::take(&mut imported_exports_per_record),
     };
+
+    // #9806: lazyBarrel must not defer an import record whose binding is read by a
+    // side-effectful (and therefore always-retained) barrel-own statement. Such a statement
+    // (e.g. `const Bar = Foo.Bar;`) survives tree-shaking regardless of whether the matching
+    // export is requested, but a deferred import has `resolved_module = None`, so the finalizer
+    // removes the import declaration while the reading statement remains => `ReferenceError`.
+    // Force-load any still-deferred record referenced by such a statement. The side-effect filter
+    // naturally excludes import declarations and source-less export clauses (which carry no side
+    // effect), so this never defeats deferral of plain re-exports.
+    if is_barrel {
+      for (_, stmt_info) in stmt_infos.iter_enumerated_without_namespace_stmt() {
+        if !stmt_info.side_effect.has_side_effect() {
+          continue;
+        }
+        for reference in &stmt_info.referenced_symbols {
+          let Some(named_import) = module.named_imports.get(reference.symbol_ref()) else {
+            continue;
+          };
+          if let Some(exports) = imported_exports_per_record.remove(&named_import.record_idx) {
+            match initial_needed_records.entry(named_import.record_idx) {
+              Entry::Occupied(mut occ) => occ.get_mut().merge(&exports),
+              Entry::Vacant(vac) => {
+                vac.insert(exports);
+              }
+            }
+          }
+        }
+      }
+    }
 
     (imported_exports_per_record, initial_needed_records)
   }

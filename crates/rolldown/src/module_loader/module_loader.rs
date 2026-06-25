@@ -447,6 +447,7 @@ impl<'a, Fs: FileSystem + Clone + 'static> ModuleLoader<'a, Fs> {
             self.flat_options.is_lazy_barrel_enabled().then(|| {
               self.cache.barrel_state.initialize_barrel_tracking(
                 normal_module,
+                &stmt_infos,
                 &raw_import_records,
                 &mut barrel_info,
               )

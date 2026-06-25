@@ -1,0 +1,73 @@
+---
+source: crates/rolldown_testing/src/integration_test.rs
+---
+# Assets
+
+## main.js
+
+```js
+// HIDDEN [\0rolldown/runtime.js]
+//#region core/checkGlobals.js
+function checkGlobals() {
+	globalThis.__checkGlobalsRan = true;
+}
+var init_checkGlobals = __esmMin((() => {}));
+//#endregion
+//#region core/setupWorker.js
+function setupWorker(handler) {
+	return { handler };
+}
+var init_setupWorker = __esmMin((() => {}));
+//#endregion
+//#region core/http.js
+function http() {
+	return "http";
+}
+var init_http = __esmMin((() => {}));
+//#endregion
+//#region core/index.js
+var init_core = __esmMin((() => {
+	init_checkGlobals();
+	init_setupWorker();
+	init_http();
+	checkGlobals();
+}));
+//#endregion
+//#region main.js
+var worker;
+//#endregion
+__esmMin((() => {
+	init_core();
+	worker = setupWorker(http());
+	console.log(worker);
+}))();
+
+```
+
+# Variant: [wrapped_module_treeshaking: true]
+
+## Assets
+
+### main.js
+
+```js
+// HIDDEN [\0rolldown/runtime.js]
+//#region core/setupWorker.js
+function setupWorker(handler) {
+	return { handler };
+}
+//#endregion
+//#region core/http.js
+function http() {
+	return "http";
+}
+//#endregion
+//#region main.js
+var worker;
+//#endregion
+__esmMin((() => {
+	worker = setupWorker(http());
+	console.log(worker);
+}))();
+
+```

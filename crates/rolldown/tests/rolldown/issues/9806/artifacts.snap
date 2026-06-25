@@ -1,0 +1,32 @@
+---
+source: crates/rolldown_testing/src/integration_test.rs
+---
+# Assets
+
+## main.js
+
+```js
+import nodeAssert from "node:assert";
+// HIDDEN [\0rolldown/runtime.js]
+//#region pkg-barrel/foo.cjs
+var require_foo = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	function Foo() {}
+	Foo.Bar = "bar-value";
+	module.exports = Foo;
+}));
+//#endregion
+//#region pkg-barrel/other.cjs
+var require_other = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	module.exports = "other-value";
+}));
+//#endregion
+//#region pkg-barrel/index.mjs
+var import_foo = /* @__PURE__ */ __toESM(require_foo(), 1);
+var import_other = /* @__PURE__ */ __toESM(require_other(), 1);
+import_foo.default.Bar;
+//#endregion
+//#region main.js
+nodeAssert.equal(import_other.default, "other-value");
+//#endregion
+
+```

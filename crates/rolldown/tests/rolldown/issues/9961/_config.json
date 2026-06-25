@@ -1,0 +1,11 @@
+{
+  "_comment": "https://github.com/rolldown/rolldown/issues/9961 — `core` is `sideEffects: false`, imports `checkGlobals` and calls it at top level, and re-exports setupWorker/http (whose canonicals live in sibling files). main imports only setupWorker/http. Two layered defects: (1) lazyBarrel deferred `./checkGlobals.js` (its export isn't requested), so the retained top-level `checkGlobals()` call dangled => `ReferenceError` — now fixed by the #9806 loader invariant (never defer a record read by a retained barrel-own statement), so `checkGlobals.js` is loaded and `checkGlobals` is defined; (2) strictExecutionOrder still force-includes the whole `core` barrel and runs `checkGlobals()` even though plain tree-shaking drops the barrel entirely — the base variant shows this over-retention (checkGlobals present and running), and the `[wrapped_module_treeshaking: true]` variant fixes it (core pruned, checkGlobals absent). Both variants now execute without error.",
+  "config": {
+    "strictExecutionOrder": true
+  },
+  "configVariants": [
+    {
+      "wrappedModuleTreeshaking": true
+    }
+  ]
+}
